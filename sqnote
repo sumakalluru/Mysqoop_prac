@@ -1,0 +1,697 @@
+								
+							SQOOP
+							********
+
+What is Sqoop?
+>Sqoop is a tool used for data transfer b/w RDBMS (like MySql,Oracle SQL etc.) & Hadoop (HDFS,Hive & HBASE etc.)
+>It is used to import data from RDBMS to Hadoop & export data from Hadoop to RDBMS.
+
+Why is Sqoop used?
+>Big data developer's work start once the data is in Hadoop system like HDFS,Hive or HBASE.They do their magical stuff to find all the golden info. hidden on such a huge amnt of data.
+>Before Sqoop,developers used to write code to import & export data b/w Hadoop & RDBMS.
+>Sqoop uses MapReduce mechanism for its operations like import & export work & work on parallel mechanism as well as  fault tolerence.
+>In Sqoop we need to mention the src,target & the rest of the work will be done by the Sqoop tool.
+
+FEATURES OF SQOOP :- SQOOP is robust,easily usable & has community support & contribution.
+************************
+>Full Load
+>Incremental Load
+>Parallel import/export
+>Import rslts of SQL query
+>Compression
+>Connectors for all major RDBMS Databases
+>Load data directly into Hive/HBase
+
+Sqoop Architecture :
+**********************
+>When Sqoop starts functioning,only mapper job will run & reducer is not required bcz cmplt import & export process doesn't require any aggregation & so there is no need of reducers in Sqoop.
+Main functions of Sqoop are : Import & Export.
+
+Sqoop Import :
+****************
+>The Sqoop import tool will import each table of the RDBMS in Hadoop & each row of the table will be considered as a record in the HDFS.
+>All records are stored as txt data in text files or as binary data in Avro & Sequence files.
+
+Sqoop Export :
+***************
+>The Sqoop export tool will export Hadoop files back to RDBMS tables.
+>The records in the HDFS files will be the rows of a table & delimited with a user-specified delimiter.
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+						Class - 1 ( SQOOP CMNDS )
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+1)sqoop version :- To see the version of sqoop that is running
+******************
+O/P :-
+*****
+Warning: /usr/lib/sqoop/../accumulo does not exist! Accumulo imports will fail
+Please set $ACCUMULO_HOME to the root of your Accumulo installation.
+22/03/06 06:49:43 INFO sqoop.Sqoop: Running Sqoop version: 1.4.6-cdh5.13.0
+Sqoop 1.4.6-cdh5.13.0
+git commit id
+Compiled by jenkins on Wed Oct  4 11:04:44 PDT 2017
+
+2)list-databases : This cmnd will show all the databases in ur MYSQL or any other RDBMS.
+******************
+Sqoop cmnd can be executed in 2 ways :
+Syntax :
+********
+Method-1
+********
+sqoop list-databases --connect jdbc:mysql://localhost:3306 --username root --password cloudera
+
+Method-2
+***********
+sqoop list-databases \
+--connect jdbc:mysql://localhost:3306 \
+--username root \
+--password cloudera 
+
+3)list-tables : To see all the tables in DB
+*************
+Syntax :
+********
+sqoop list-tables \
+--connect jdbc:mysql://localhost:3306/<DB_name> \
+--username root \
+--password cloudera 
+
+4)sqoop eval :- This cmnd allows user to quickly run user defined SQL queries & get the o/p on console.
+**************
+Syntax :
+********
+sqoop eval \
+--connect jdbc:mysql://localhost:3306/<DB_name> \
+--username root \
+--password cloudera \
+--query "show databases"
+
+5)--boundary-query :- By default sqoop will use query select min(),max() to find out boundaries for creating splits. 
+************************
+In some cases this query is not the most optimal so u can specify any arbitaray query returning two numeric columns using --boundary-query argument.
+
+Reason to use : If --split-by is not giving u the optimal performance u can use this to improve the performance further.
+***************
+eg: --boundary-query "SELECT min(id),max(id) from table"
+**
+Syntax :
+********
+sqoop import \
+--connect jdbc:mysql://localhost:3306/<DB_name> \
+--username root \
+--password cloudera \
+--boundary-query "SELECT min(id),max(id) from table" \
+--split-by id
+
+-------------------------------------------------------------------------------------------------------------------------
+					Class - 2
+---------------------------------------------------------------------------------------------------------------------------
+
+Impoort Ctrl Arguments 
+****************************
+ARGUMENTS			DESCRIPTION
+***************			****************
+--append				Append data to an existing dataset in HDFS
+--as-avrodatafile			imports data to Avro Data Files
+--as-sequencefile			imports data to Sequence Files
+--as-textfile			imports data as plain text (default)
+--as-parquetfile			imports data to Parquet Files
+--boundary-query			Boundary query to use for creating splits
+<statement>
+--columns<col,col,col,....>		Columns to import from table
+--delete-target-dir			Delete the import target directory if it exists
+--direct				Use direct connector if exists for the database at once.
+--fetch-size<n>			No.of entries to read from database at once
+--inline-job-limit<n>		Set the maximum size for an inline LOB
+-m,--num-mappers<n>		Use n map tasks to import in parallel
+-e,--query<statement>		Import the rslts of statements
+--split-by<col-name>		Column of the table used to split work units.Cannot be used with --autoreset-to-one-mapper option.
+--autoreset-to-one-mapper		Import should use one mapper if a table has no primary key & no split-by column is provided.
+				Cannot be used with --split-by <col>option.
+
+--table<table-name>		Table to read
+--target-dir<dir>			HDFS destination dir
+--warehouse-dir<dir> 		HDFS parent for table destination
+--where<where clause>		WHERE clause to use during import
+-z,--compress			Enable compression
+--compression-codec<c>		Use Hadoop codec(default gzip)
+--null-string<null-string>		The string to be written for a null value for string columns
+--null-non-string<null-string>	The string to be written for a null value for non-string columns
+
+
+8)Import table data which don't have PK into HDFS 
+**********************************************************
+1)Sqoop by default uses 4 concurrent map tasks to import data in Hadoop.
+2)While performing the parallel imports Sqoop needs criteria by which it can split the workload.Sqoop uses the splitting column to split the workload.
+3)By default,Sqoop will identify the PK column (if present) in a table to use as the splitting column.
+4)The low & high values of splitting column are retrieved from databases & the map task operate on evenly sized components of total range.
+
+There are 2 ways to import MySql table data into HDFS if table doesn't have PK.
+1)Add -m 1 : -m 1 tells to use sequential import with 1 mapper i.e, inspite of using 4 different maptask use only one map task which means entire 
+*************
+data will be available in only one part file.
+
+Syntax - 1
+***********
+sqoop import \
+--connect jdbc:mysql://localhost:3306/<DB_name> \
+--username root \
+--password cloudera \
+--table <table_name>
+--m 1
+
+2)Add --split-by : Sqoop creats split based on values in a particular column of the table which is specified by the user in --split-by,throughout the import cmnd.
+*******************
+Syntax - 2
+************
+sqoop import \
+--connect jdbc:mysql://localhost:3306/<DB_name> \
+--username root \
+--password cloudera \
+--table <table_name> \
+--split-by <colname>
+
+
+9)Protecting ur password :
+*****************************
+Typing ur password into cmnd line is insecure.There are 2 methods other than specifying the password on the cmnd line with --password parameter.
+
+Method-1
+***********
+To use the parameter -P that will instruct Sqoop to read the password from standard i/p.
+
+Syntax-1 : It will prompt for a password during execution.
+**********
+sqoop import \
+--connect jdbc:mysql://localhost:3306/<DB_name> \
+--username root \
+--P --table <table_name> 
+
+Method-2
+***********
+Save ur password in a file & specify the path to this file with the parameter --password-file.The file containing the password can either be on local FS or HDFS.
+
+Syntax-2 :
+**********
+a)Create a password file in LFS.
+
+sqoop import \
+--connect jdbc:mysql://localhost:3306/<DB_name> \
+--username root \
+--password-file file:///home/cloudera/<dir-name> \
+--table <table_name> 
+
+b)Put the file from LFS to HDFS 
+
+sqoop import \
+--connect jdbc:mysql://localhost:3306/<DB_name> \
+--username root \
+--password-file /user/cloudera/<dir-name> \
+--table <table_name> 
+
+--------------------------------------------------------------------------------------------------------------------------------------------------
+						Class - 3
+------------------------------------------------------------------------------------------------------------------------------------------------
+
+10)Speed up Transfers : --direct mode allow to extract the data quickly.
+***************************
+Syntax :
+********
+sqoop import \
+--connect jdbc:mysql://localhost:3306/<DB_name> \
+--username root --P \
+--table <table_name> \
+--direct
+ 
+NOTE :- Limitations of faster import 
+*******
+1)Sqoop can only perform --direct mode imports from postgreSQL,Oravle&Netezza.
+2)Binary formats like Sequence File or Avro won't work with direct mode import.
+3)Incase of MySQL's native utility like mysqldump & mysqlimpoort,rather than using the JDBC interface for transferring data.
+
+
+11)--target-dir :- Importing the data to target directory
+*******************
+--target-dir specify the directory on HDFS where sqoop should import your data.
+The only requirement is that this directory must not exist prior to running the sqoop cmnd.
+Bydefault,Sqoop will create a directory with the same name as the imported table inside your home directory on HDFS & import all data there.
+
+SYNTAX :
+**********
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root --P \
+--table <table_name> \
+--target-dir <table_name>
+
+
+12)--delete-target-dir :-
+**************************
+This dlts ur existing directory with all files within it & creates a new directory.
+With this argument u can overcome the error:File exist during sqoop import.
+
+SYNTAX :
+*********
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root --P \
+--table <table_name> \
+--delete-target-dir --target-dir <table_name>
+
+13)--append : Add data to an existing file in HDFS
+***************
+SYNTAX :
+*********
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root --P \
+--table <table_name> \
+--target-dir <path> \
+--append
+
+14)--warehouse-dir :- Importing the data inside parent directory 
+************************
+By default ,Sqoop impoorts data to your home directory on HDFS, the --warehouse-dir parameter allows you to specify only parent directory.
+
+SYNTAX :
+*********
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root --P \
+--table <table_name> \
+--warehouse-dir <path> 
+
+15)--columns : allow to specify which columns to impoort.
+****************
+Import all rows of a table from MySQL, but specific columns of table.
+
+SYNTAX :
+*********
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root --P \
+--table <table_name> \
+--target-dir <path> \
+--columns "col1,col2,..."
+
+NOTE : We can do this by --query option also
+*******
+16)Imports subset of table data : --where allows us to Import rows on a given condition
+***********************************
+SYNTAX :
+*********
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root --P \
+--table <table_name> \
+--target-dir <path> \
+--where "condition"
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+							class-4
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+17)import-all-tables :- Import all tables of a MySQL DB into HDFS
+***********************
+Import all tables from DB at once using one cmnd rather than importing the tables one by one.
+
+--target-dir parameter is not allowed
+--warhouse-dir parameter is allowed
+
+NOTE :
+*******
+1)Each table must have a single column PK (or) --autorest-to-one-mapper option must be used.
+2)We must intend to import all columns of each table.
+
+SYNTAX :
+*********
+sqoop import-all-tables \
+--connect jdbc:mysql://localhost/retail_db \
+--username root --P \
+--warehouse-dir <path> \
+--autoreset-to-one-mapper
+
+NOTE: We can use --m1 (or) --split-by columns as well but that will aplly on allthe tables of DB irrespective of tables having PK / not .
+But --autoreset-to-one-mapper will be applied to only those tables who don't have a PK.
+
+18)--exclude-tables : it excludes some table & accepts a comma-seperated list of table names that should be excluded from the bulk import.
+***********************
+--target-dir parameter is not allowed
+--warehouse-dir parameter is allowed
+
+SYNTAX :
+**********
+sqoop import-all-tables \
+--connect jdbc:mysql://localhost/retail_db \
+--username root --P \
+--warehouse-dir <path> \
+--autoreset-to-one-mapper \
+--exclude-tables "table_name1,table_name2"
+
+19)Compressing Imported Data: 
+************************************
+Map reduce already has support for compression, sqoop simply reuses its powerful abilities to provide compression options.
+--compress output files will be compressed using GZip codec,with a .gz extension.
+--compression-codec output files will be compressed using BZip2 codec,with a .bgz2 extension.
+
+1)GZip with a .gz extension
+*******************************
+SYNTAX-1:
+************
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table testing \
+--m 1 \
+--compress \
+--target-dir /user/cloudera/comprs
+
+Note :-
+***** 
+i)-text cmnd , we can see the encrypted data for few formates only. 
+ii)For binary formats which are supported like zip but for parquet,avro,snappy with that we'll not able to see
+-text cmnd is used to view zip file data in HDFS.
+
+2)BZip2Codec with a .bgz2 extension
+*******************************************
+SYNTAX-2:
+************
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table testing \
+--m 1 \
+--compress --compression-codec org.apache.hadoop.io.compress.BZip2Codec \
+--target-dir /user/cloudera/comprsbzp
+
+20)Import MySQL data into HDFS in various binary file format
+***********************************************************************
+sqoop supports 3 different file formats,one of those is 
+i)text &
+ the other 2 are binary
+ii)Avro
+iii)Sequence File
+
+Bydefault, Sqoop import the data in text files that are in human readable format,platform independent & simplest structure.
+The binary formats are Avro & Hadoop's SequenceFile.These binary formats provide the most precise representation possible of the imported data.
+
+ii)Sequence File Format 
+**************************
+SYNTAX-1:
+************
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table testing \
+--m 1 \
+--target-dir /user/cloudera/seqfile \
+--as-sequencefile
+
+iii)Avro 
+*********
+SYNTAX-2:
+************
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table testing \
+--m 1 \
+--target-dir /user/cloudera/avrofile \
+--as-avrodatafile
+
+NOTE :-
+*******
+>Avro format file is used for dynamic schema evaluation.so if our schema is changing daily at that moment of time we choose avro.
+>parquet file format is best supported for agrregations  computations.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+					Class - 5
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+21)--fields-terminated-by : We can change the default delimiter [,] to any delimiter as o/p.
+*****************************
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table testing \
+-m 1 \
+--fields-terminated-by '|' \
+--target-dir /user/cloudera/dlmtrfile
+
+
+22)Incremental Imports:(incremental means taking the change data whenever we are trying to import)
+***************************
+sqoop supports 2 types of incremental imports:
+i) appeend &
+ii) lastmodified.
+you can use the --incremental argument to specify the type of incremental import to perform.
+
+i)--append mode:
+*******************
+u should specify the append mode when impoorting a table,where new rows are continually added with increasing row id values.
+u must specify the column containing the row's id with --check-column.
+sqoop imports rows where the check column has a greater than the one specified with --last-value.
+
+SYNTAX :
+**********
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table inc_imp \
+--m 1 \
+--target-dir /user/cloudera/sqoop/incrmnt/inc_imp \
+--incremental append --check-column id --last-value 103
+
+
+ii) lastmodified :
+*****************
+>An alternative table update strategy supported by Sqoop is called lastmodified mode.
+>This should be used when rows of the src table are updated, & each such update will set the value of a last-modified column to the current timestamp.
+>Rows where the check column holds a timestamp more recent than the timestamp specified with --last-value are imported.
+>At the end of an incremental import,the value which should be specified as --last-value for a subsequent import is printed to the screen.
+>When running a subsequent import, we should specify --last-value in this way to ensure we import only the new /updated data.
+>This is handled automatically by creating an incremental import as a saved job,which is the preferred mechanism for performing a recurring incremental import.
+
+>The following syntax is used for the incremental option in Sqoop cmnd.
+--incremental <mode>
+--check-column <column_name>
+--last value <last check column value>
+
+
+23)Sqoop Job:(with id)
+**************************
+Imports & exports can be repeatedly performed by issuing the same cmnd multiple times.
+Especially when using the incremental import capability, this is an expected scenario.
+
+Sqoop allows us to define saved jobs which make this process easier.
+>A saved job records the configuration info. required to execute a sqoop cmnd at a later time.
+
+>By default, job descriptions are saved to a private repository stored in $HOME/.sqoop/.
+>we can configure Sqoop to instead use a shared metastore,which makes saved jobs available to multiple users across a shared cluster.
+
+
+Argument		Decription
+************		************
+--create <job-id>		Defines a new saved job with the specified job-id(name)
+--delete <job-id>		Delete a saved job
+--exec <job-id>		Given a job defined with --create, run the saved job.
+--show <job-id>		Show the parameters for a saved job.
+--list			List all saved jobs
+
+SYNTAX:
+**********
+sqoop job --create inc_imp_id \
+-- import --connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table inc_imp \
+--m 1 \
+--target-dir /user/cloudera/sqoop/incrmnt/inc_id \
+--incremental append --check-column id --last-value 0
+
+a)sqoop job --list ---> To see list of jobs created
+
+b)sqoop job --exec inc_imp_id ---> To execute the job
+
+c)sqoop job --show inc_imp_id ---> To display job details
+
+d)sqoop job --exec inc_imp_id ---> To execute job again aftr add the data
+
+23)i) Sqoop job:(with date) 
+*******************************
+sqoop job --create inc_imp_dt \
+-- import --connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table inc_imp_dt \
+--m 1 \
+--target-dir /user/cloudera/sqoop/incrmnt/inc_imp_dt \
+--incremental append --check-column start_dt --last-value 0000-00-00
+
+23)ii)Sqoop job(with time stamp):
+**************************************
+sqoop job --create inc_imp_time \
+-- import --connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table inc_imp_time \
+--m 1 \
+--target-dir /user/cloudera/sqoop/incrmnt/inc_imp_time \
+--incremental lastmodified --check-column start_time --last-value 0000:00:00-00:00:00 --merge-key id
+
+
+> --merge-key will involve the task for reducers
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+					Class - 7 ( Sqoop Export )
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+24)--export-dir :
+******************
+SYNTAX :
+**********
+sqoop export \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table dept_exp \
+--export-dir /user/cloudera/sqoop/departments
+
+Sqoop --null-string & --null-non-string :
+**********************************************
+ Argument			Description
+i)--null-string <null-string>		The string to be interpreted as null for string columns.
+ii)--null-non-string <null-string>	The string to be interpreted as null for non-string columns.
+
+
+i)--null-sting & --null-non-string :- Handling null values for string & non-string
+**************************************
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table inc_imp_dt  \
+--target-dir /user/cloudera/sqoop/inc_imp_dt_nul \
+--m 1 \
+--null-string NA \
+--null-non-string 9999
+
+
+25)--map-column-java :
+***************************
+--map-column-java <mapping> : Override mapping from SQL to Java type for configured columns.
+
+>When we do sqoop import from RDBMS to HDFS file system , java serialisation is hpng i.e, mapreduce is executing so all the data cmng 
+from RDBMS are getting serialised & getting converted into binary formats which HDFS can understand & the data gets stored.
+>so, some times when serialization is hpng some datatpes are not recognised appropriately at this moment of time we use --map-column-java.
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table orders \
+--target-dir /user/cloudera/sqoop/orders_mapjava \
+--as-avrodatafile \
+--map-column-java order_date=string
+
+sqoop import \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table orders \
+--delete-target-dir /user/cloudera/sqoop/orders_mapjava \
+--as-avrodatafile \
+--map-column-java order_date=string
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+						Class - 8 ( Sqoop Export )
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+26)Sqoop export updateonly : --update-mode updateonly --update-key<column>
+*********************************
+In --update-mode we have 2 types of arguments: 
+i)updateonly --update-key <column>
+ii)allowinsert --update-key <column>
+
+i)updateonly --update-key <column>
+********************************************
+sqoop export \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table dept_update \
+--export-dir /user/cloudera/sqoop/departments \
+--update-mode updateonly --update-key department_id
+
+27)allowinsert --update-key <column>
+********************************************
+Sqoop export allowinsert: --update-mode allowinsert --update-key <column>
+
+--update-mode allowinsert --update-key <column>
+>this allowinsert will append the data but not over writes it
+
+sqoop export \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table dept_update \
+--export-dir /user/cloudera/sqoop/departments \
+--update-mode allowinsert --update-key department_id
+
+28)Sqoop Stagging tables: --staging-table <table_name>
+*******************************************************************
+>From departments directory in HDFS  the data will be exorted first into the staging table i.e, stg_dept_update 
+>Then the data from staging table will be pushed into the main table i.e,dept_update tableand then truncated in the staging table
+
+
+sqoop export \
+--connect jdbc:mysql://localhost/retail_db \
+--username root \
+--password-file /user/cloudera/sqoop/hfs \
+--table dept_update \
+--export-dir /user/cloudera/sqoop/departments \
+--staging-table stg_dept_update
+
+(22/03/12 00:04:47 INFO manager.SqlManager: Migrated 8 records from `stg_dept_update` to `dept_update`)
+ 
+mysql> select * from stg_dept_update;
++---------------+-------------------+
+| department_id | department_name |
++---------------+-------------------+
+|             8          | IT            	            |
+|             4          | Apparel    	            |
+|             9          | Roshan      	            |		--->loaded data into staging table from department dir
+|             5          | Golf          	            |
+|             6          | Outdoors  	            |
+|             7          | Fan Shop  	            |
++---------------+-------------------+
+6 rows in set (0.00 sec)
+
+mysql> select * from stg_dept_update;
++---------------+-------------------+
+| department_id | department_name |
++---------------+-------------------+
+|             8          | IT                           |
+|             4          | Apparel     	            |
+|             9          | Roshan  	            |
+|             5          | Golf  	            |		--->table got updated
+|             6          | Outdoors	            |
+|             7          | Fan Shop	            |
+|             2          | Fitness                    |
+|             3          | FootWear               |
++---------------+-------------------+
+8 rows in set (0.00 sec)
+
+mysql> select * from stg_dept_update;                 --->staging table got truncated after pushing the data into main table
+Empty set (0.00 sec)
+
+
+=========================================== The End ====================================================
+
+
